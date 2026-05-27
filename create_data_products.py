@@ -257,11 +257,11 @@ class CreateDataProducts(object):
             elif cases[argsort][i] == 1:
                 ext.header['CASE_EXP'] = 'Spots are masked'
             elif cases[argsort][i] == 2:
-                ext.header['CASE_EXP'] = 'Spots are Gaussians'
+                ext.header['CASE_EXP'] = 'Spots modeled as Gaussians'
             elif cases[argsort][i] == 3:
                 ext.header['CASE_EXP'] = 'Spots modeled with fleck'
             elif cases[argsort][i] == 4:
-                ext.header['CASE_EXP'] = 'Gaussian process fit'
+                ext.header['CASE_EXP'] = 'Full Gaussian process fit'
             else:
                 return('Case numbers must be between [0,4].')
 
