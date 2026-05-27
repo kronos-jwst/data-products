@@ -5,8 +5,7 @@ from time import gmtime, strftime
 
 import utils
 
-__all__ = ['set_header', 'stellar_spec', 'white_light_curve',
-           'spec_light_curves', 'transmission_spec']
+__all__ = ['CreateDataProducts']
 
 # Helper functions to ensure data product uniformity for the kronos program.
 # These will be in the standard format required by MAST to be hosted as HLSPs
@@ -17,7 +16,7 @@ __all__ = ['set_header', 'stellar_spec', 'white_light_curve',
 class CreateDataProducts(object):
 
     def __init__(self, creator, creator_email, target, instrument,
-                 element, pipeline, stage2_file, version=1.0):
+                 element, pipeline, stage2_file, version=1):
         """
         Initializes the CreateDataProducts object.
 
@@ -60,7 +59,7 @@ class CreateDataProducts(object):
         self.pipeline = pipeline
         self.stage2_file = fits.open(stage2_file)
 
-        self.version  = float(version)
+        self.version  = int(version)
 
         return
 
@@ -79,7 +78,8 @@ class CreateDataProducts(object):
         """
         keys, setval = utils.required_keys_all(self.stage2_file[0].header)
 
-        hdr = fits.Header()
+        primary = fits.PrimaryHDU()
+        hdr = primary.header
 
         for i in range(len(keys)):
             if setval[i] == False:
@@ -102,7 +102,7 @@ class CreateDataProducts(object):
                 if keys[i] == 'HLSPLEAD':
                     hdr.set(keys[i], 'Adina Feinstein')
                 if keys[i] == 'HLSPTARG':
-                    hdr.set(keys[i], self.target, 'Target for this data product.')
+                    hdr.set(keys[i], self.target, 'Target in this data product.')
                 if keys[i] == 'HLSPVER':
                     hdr.set(keys[i], self.version, 'Data product version.')
                 if keys[i] == 'LICENSE':
@@ -118,7 +118,7 @@ class CreateDataProducts(object):
                 if keys[i] == 'OBSERVAT':
                     hdr.set(keys[i], 'JWST')
                 if keys[i] == 'PLANET':
-                    hdr.set(keys[i], self.target, 'Planet for this data product.')
+                    hdr.set(keys[i], self.target, 'Planet in this data product.')
                 if keys[i] == 'PIPELINE':
                     hdr.set(keys[i], self.pipeline, 'Reduction pipeline used.')
                 if keys[i] == 'PROPOSID':
@@ -126,216 +126,148 @@ class CreateDataProducts(object):
                 if keys[i] == 'XPOSURE':
                     hdr.set(keys[i], 0)
 
-        return hdr
+        return primary
 
-
-    def set_spectra_hdr(self, method, aperture=None):
-        """
-        Creates the header for the stellar spectra extension.
-
-        Parameters
-        ----------
-        method : str
-           How the spectra were extracted. Should be either 'box' or 'optimal'.
-        aperture : float, optional
-           The aperture of the box used to extract the stellar spectra. This is
-           not applicable if the spectra were extracted via 'box' method. Default
-           is None.
-        """
-        spec_hdr = fits.Header()
-
-        """
-        spec_hdr['METHOD']   =
-        spec_hdr['APERTURE'] = aperture
-        spec_hdr['XPOSURE']  =
-        spec_hdr['BUNIT']    =
-        spec_hdr['CDi_j']    =
-        spec_hdr['CDELTi']   =
-        spec_hdr['CRPIXj']   =
-        spec_hdr['CRVALi']   =
-        spec_hdr['CTYPEi']   =
-        spec_hdr['PCi_j']    =
-        spec_hdr['RADESYS']  =
-        spec_hdr['WCSAXES']  =
-        """
-        return spec_hdr
-
-
-    def set_whitelc_hdr(self, wave_start, wave_end):
-        """
-        Creates the header for the stellar spectra extension.
-
-        Parameters
-        ----------
-        cenwave : float
-           The central wavelength value.
-        cenwave_err : float
-           The error on the bin size of the central wavelength value.
-        channel : int, optional
-           The channel number for the spectroscopic light curve. Default is 0.
-        """
-        whitelc_hdr = fits.Header()
-
-        whitelc_hdr['XTENSION'] = 1
-
-        whitelc_hdr['FILT']   = 'WHITE'
-        whitelc_hdr['CHANNEL'] = 0
-        whitelc_hdr['WAVE-START'] = wave_start
-        whitelc_hdr['WAVE-END'] = wave_end
-
-        return speclc_hdr
-
-
-    def set_speclc_hdr(self, cenwave, cenwave_err, channel=0):
-        """
-        Creates the header for the stellar spectra extension.
-
-        Parameters
-        ----------
-        cenwave : float
-           The central wavelength value.
-        cenwave_err : float
-           The error on the bin size of the central wavelength value.
-        channel : int, optional
-           The channel number for the spectroscopic light curve. Default is 0.
-        """
-        speclc_hdr = fits.Header()
-
-        speclc_hdr['XTENSION'] = channel + 1
-
-        speclc_hdr['FILT']   = 'MULTI'
-        speclc_hdr['CHANNEL'] = channel
-
-        speclc_hdr.set('CENWAVE', cenwave, 'microns')
-        speclc_hdr.set('WAVEERR', cenwave_err, 'microns')
-        speclc_hdr.set('LC-UNIT', 'normalized')
-
-        return speclc_hdr
-
-
-    def stellar_spec(self):
+    def stellar_spectra_niriss(self, filename, flux_calibrated=False, overwrite=False):
         """
         Creates an h5py file for the stellar spectra from a given pipeline.
 
         Parameters
         ----------
+        filename : str
+           Name of the file to load data from.
         """
-        filename = 'hlsp_kronos_jwst_{0}_{1}_{2}_{3}_v{4}_stellarspec.fits'.format(self.instrument,
-                                                                                   self.target,
-                                                                                   self.element,
-                                                                                   self.pipeline,
-                                                                                   self.version)
-        hdr = set_main_header()
+        if flux_calibrated == False:
+            extname = 'uncalstellarspec'
+        else:
+            extname = 'fluxcalstellarspec'
+
+        outputname = 'hlsp_kronos_jwst_{0}_{1}_{2}_v{3}_{4}.fits'.format(self.instrument.lower(),
+                                                                     self.target.lower(),
+                                                                     self.pipeline.lower(),
+                                                                     self.version,
+                                                                     extname)
+        hdu = fits.open(filename)
+
+        ext_list = [self.set_main_header()]
+
+        for i in range(1, len(hdu)):
+            datatype = hdu[i].header['EXTNAME'].split(' ')
+
+            if (datatype[0] == 'Wave') and (len(datatype) == 2):
+                extname = 'WAVELENGTH'
+            elif (datatype[0] == 'Wave') and (len(datatype) > 2):
+                extname = 'WAVELEGTH_ERROR'
+            elif (datatype[0] == 'Flux') and (len(datatype) == 2):
+                extname = 'FLUX'
+            elif (datatype[0] == 'Flux') and (len(datatype) > 2):
+                extname = 'FLUX_ERROR'
+            elif datatype[0] == 'Time':
+                extname = 'TIME'
+
+            ext = fits.ImageHDU(data=hdu[i].data, name=extname)
+
+            if i == 0:
+                ext.header['METHOD']  = hdu[0].header['METHOD']
+                ext.header['APWIDTH'] = hdu[0].header['WIDTH']
+
+            if datatype[-1] == 'O1':
+                ext.header['ORDER'] = 1
+            elif datatype[-1] == 'O2':
+                ext.header['ORDER'] = 2
+            else:
+                pass
+
+            ext.header['UNITS'] = hdu[i].header['UNITS']
+            ext.header['XTENSION'] = hdu[i].header['XTENSION']
+            ext.header['NAXIS'] = hdu[i].data.shape[0]
+
+            try:
+                ext.header['NAXIS2'] = hdu[i].data.shape[1]
+            except IndexError:
+                pass
+
+            ext_list.append(ext)
+
+        hdulist = fits.HDUList(ext_list)
+        hdulist.writeto(outputname, overwrite=overwrite)
         return
 
 
-    def white_light_curve(self, pipeline):
-        """
-        Creates an h5py file for the white light curve from a given pipeline.
-
-        Parameters
-        ----------
-        """
-        filename = 'hlsp_kronos_jwst_{0}_{1}_{2}_{3}_v{4}_whitelc.fits'.format(self.instrument,
-                                                                               self.target,
-                                                                               self.element,
-                                                                               self.pipeline,
-                                                                               self.version)
-        hdr = self.set_main_header()
-        return
-
-
-    def spec_light_curves(self, cenwave, cenwave_err, lc, lc_err, models, R):
-        """
-        Creates an h5py file for the spectroscopic light curves from a given pipeline.
-
-        Parameters
-        ----------
-        cenwave : np.array
-           Array of the central wavelengths for each spectroscopic channel.
-        cenwave_err : np.array
-           Array of half of the bin width for each spectroscopic channel.
-        lc : np.ndarray
-           2D array of the light curves for each spectroscopic channel.
-        lc_err : np.ndarray
-           2D array of the light curve errors for each spectroscopic channel.
-        models : np.ndarray
-           2D array of the best-fit light curve model for each spectroscopic
-           channel.
-        """
-        filename = 'hlsp_kronos_jwst_{0}_{1}_{2}_{3}_v{4}_R{5}_speclc.fits'.format(self.instrument,
-                                                                                   self.target,
-                                                                                   self.element,
-                                                                                   self.pipeline,
-                                                                                   self.version,
-                                                                                   R)
-        dset = fits.HDUList()
-        hdr = self.set_main_header()
-
-        if (lc.shape != lc_err.shape) and (lc.shape != models.shape):
-            return('lc, lc_err, and models should all be the same shape.')
-        if len(cenwave) != len(lc):
-            return('cenwave and lc should be the same length.')
-
-        hdulist = [hdr]
-
-        for i in range(len(lc)):
-            shdr = self.set_speclc_hdr(cenwave[i], cenwave_err[i], i)
-
-            tab = Table()
-            tab['LC'] = lc[i]
-            tab['LC-ERR'] = lc_err[i]
-            tab['MODEL'] = models[i]
-
-            tab_hdu = fits.BinTableHDU(tab, header=shdr)
-
-            hdulist.append(tab_hdu)
-
-        print(hdulist[40].header)
-        return
-
-
-    def transmission_spec(self, wave, wave_err, depth, depth_err, R):
+    def transmission_spec(self, files, resolutions, cases, overwrite=True):
         """
         Creates a text file for the transmission spectrum.
 
         Parameters
         ----------
-        wave : np.array
-           Array of the central wavelength for the transmission spectrum, in units
-           of microns.
-        wave_err : np.array
-           Array of the half width of each wavelength bin for the transmission
-           spectrum, in units of microns.
-        depth : np.array
-           Array of the measured transit depth as a function of wavelength, in units
-           of parts-per-million (ppm).
-        depth_err : np.array
-           Array of the error of the measured transit depth as a function of
-           wavelength, in units of parts-per-million (ppm).
-        R : int
-           The resolution of the transmission spectrum.
-        pipeline : str
-           The name of the pipeline used to reduce the data.
+        files : list, np.array
+           List of files to open and include in the single FITS file. Files
+           should be .txt files with four columns: wavelength, wavelength error,
+           flux, and flux error. It is assumed the file is in this order.
+        resolutions : list, np.array
+           List of resolutions of the transmission spectra. Should be in the
+           same order as the files.
+        cases : list, array
+           List of test cases of the transmission spectra. Should be in the same
+           order as the files array.
         """
-        if np.nanmedian(depth) < 100:
-            return('Transit depth should be given in units of ppm.')
+        files = np.array(files)
+        cases = np.array(cases)
+        resolutions = np.array(resolutions)
 
-        tab = Table()
-        tab['wave'] = wave
-        tab['wave_err'] = wave_err
-        tab['depth'] = depth
-        tab['depth_err'] = depth_err
+        ext_list = [self.set_main_header()]
 
-        # Writes a CSV for the modelers
-        tab.write('{0}_R{1}_spectrum.txt'.format(pipeline, R),
-                  format='ascii')
 
         # Writes a FITS file for MAST
-        filename = 'hlsp_kronos_jwst_{0}_{1}_{2}_{3}_v{4}_transmission.fits'.format(self.instrument,
-                                                                                    self.target,
-                                                                                    self.element,
-                                                                                    self.pipeline,
-                                                                                    self.version)
+        outputname = 'hlsp_kronos_jwst_{0}_{1}_{2}_v{3}_transmission-spectra.fits'.format(self.instrument.lower(),
+                                                                                          self.target.lower(),
+                                                                                          self.pipeline.lower(),
+                                                                                          self.version)
+
+        # Sort files by Case #
+        argsort = np.argsort(cases)
+
+        for i in range(len(files)):
+            dat = np.loadtxt(files[argsort][i])
+
+            tab = Table()
+            tab['wave'] = dat[:,0]
+            tab['wave_err'] = dat[:,1]
+
+            if np.nanmedian(dat[:,2]) < 1:
+                depth = dat[:,2]
+                depth_err = dat[:,3]
+            else:
+                print('Converting ppm to transit depth for consistent units.')
+                depth = (dat[:,2] / 1e6)**2.0
+                depth_err = (dat[:,3] / 1e6)**2.0
+
+            tab['depth'] = depth
+            tab['depth_err'] = depth_err
+
+            ext = fits.BinTableHDU(data=tab, name='Transmission spectrum')
+
+            ext.header['WAVEUNITS'] = 'micron'
+            ext.header['DEPTH_UNITS'] = '(rp/rstar)^2'
+            ext.header['RES'] = resolutions[argsort][i]
+            ext.header['CASE'] = cases[argsort][i]
+
+            if cases[argsort][i] == 0:
+                ext.header['CASE_EXP'] = 'Spots are ignored'
+            elif cases[argsort][i] == 1:
+                ext.header['CASE_EXP'] = 'Spots are masked'
+            elif cases[argsort][i] == 2:
+                ext.header['CASE_EXP'] = 'Spots are Gaussians'
+            elif cases[argsort][i] == 3:
+                ext.header['CASE_EXP'] = 'Spots modeled with fleck'
+            elif cases[argsort][i] == 4:
+                ext.header['CASE_EXP'] = 'Gaussian process fit'
+            else:
+                return('Case numbers must be between [0,4].')
+
+            ext_list.append(ext)
+
+        hdulist = fits.HDUList(ext_list)
+        hdulist.writeto(outputname, overwrite=overwrite)
 
         return

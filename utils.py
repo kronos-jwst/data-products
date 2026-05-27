@@ -25,7 +25,7 @@ def required_keys_all(header):
                      'MJD-BEG', 'MJD-END', 'MJD-MID', 'OBSERVAT', 'PROPOSID', 'TELESCOP',
                      'TIMESYS', 'XPOSURE', 'PLANET', 'PIPELINE', 'CREATOR', 'CONTACT',
                      'DATEMADE', 'NGROUPS', 'NFRAMES', 'NINTS', 'TARG_RA', 'TARG_DEC'
-                     ])
+                     'VISIT_ID', 'OBS_ID', 'EFFEXPTM', 'DURATION'])
 
     set_key = np.zeros(len(keys), dtype=bool)
 
