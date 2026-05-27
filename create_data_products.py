@@ -194,7 +194,7 @@ class CreateDataProducts(object):
         return
 
 
-    def transmission_spec(self, files, resolutions, cases, overwrite=True):
+    def transmission_spec(self, files, resolutions, cases, overwrite=False):
         """
         Creates a text file for the transmission spectrum.
 
@@ -247,8 +247,8 @@ class CreateDataProducts(object):
 
             ext = fits.BinTableHDU(data=tab, name='Transmission spectrum')
 
-            ext.header['WAVEUNITS'] = 'micron'
-            ext.header['DEPTH_UNITS'] = '(rp/rstar)^2'
+            ext.header['WAV_UNIT'] = 'micron'
+            ext.header['DEP_UNIT'] = '(rp/rstar)^2'
             ext.header['RES'] = resolutions[argsort][i]
             ext.header['CASE'] = cases[argsort][i]
 
